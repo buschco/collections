@@ -9,6 +9,9 @@ import type {
 import Head from "next/head";
 import Link from "next/link";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { ReactMarkdownProps } from "react-markdown/lib/complex-types";
+import rehypeHighlight from "rehype-highlight";
 
 const C = ({ className, ...props }: React.HTMLProps<HTMLSpanElement>) => (
   <code className={`p-1 bg-gray-100 rounded-md ${className}`} {...props} />
@@ -16,7 +19,19 @@ const C = ({ className, ...props }: React.HTMLProps<HTMLSpanElement>) => (
 
 const sections: Record<string, any> = {
   first: {
-    title: "Section 1",
+    title: "1: Create new array from array with map",
+    description: `
+### Context
+The \`map\` function is like a transform function for every item. It returns a new array based from the previous one, with the items returned from the callback function.
+
+### Example
+
+    // [ { name: 'Bob' }, { name: 'Alice' } ]
+    array.map(item => item.name)
+    // [ 'Bob', 'Alice' ]
+   
+### Task
+Use the \`map\` function to create an array of the names of the balls.`,
     nextSection: "second",
     initialCode: "balls.map()",
     data: [
@@ -35,9 +50,57 @@ const sections: Record<string, any> = {
     ],
   },
   second: {
-    title: "Section 2",
+    title: "2. Add an attribute",
     nextSection: "third",
-    initialCode: "balls.filter()",
+    initialCode: `balls.map((ball) => {
+  return ball
+})`,
+    description: `
+### Context
+If you need to add a prop to the items Javascript gives us the spread operator: \`...\`. It will copy the keys and values into the target structure.
+
+### Example
+
+    let bob = { name: 'Bob' }
+    bob = { ...bob, age: 24 }
+    bob = { ...bob, favoriteFood: 'Pasta' }
+    // bob -> { name: 'Bob', age: 24, favoriteFood: 'Pasta' }
+   
+### Task
+Use the \`map\` function with the spread operator to add \`sport: true\` to each item`,
+    data: [
+      { name: "baseball", size: 1 },
+      { name: "basketball", size: 3 },
+      { name: "tennisball", size: 1 },
+      { name: "volleyball", size: 2 },
+      { name: "football", size: 2 },
+    ],
+    expected: [
+      { name: "baseball", size: 1, sport: true },
+      { name: "basketball", size: 3, sport: true },
+      { name: "tennisball", size: 1, sport: true },
+      { name: "volleyball", size: 2, sport: true },
+      { name: "football", size: 2, sport: true },
+    ],
+  },
+  third: {
+    title: "3. Filter",
+    description: `
+### Context
+With the \`filter\` function, you can create a new, filtered array. The \`filter\` callback, needs to return falsy (\`false\`), for the item to be filtered from the array.
+
+### Example
+
+    let bob = { name: 'Bob' }
+    bob = { ...bob, age: 24 }
+    bob = { ...bob, favoriteFood: 'Pasta' }
+    // bob -> { name: 'Bob', age: 24, favoriteFood: 'Pasta' }
+   
+### Task
+
+Use the \`filter\` function to create a new array containing all balls with a size greater than 1.`,
+    nextSection: "third",
+    initialCode: "balls.filter(() => true)",
     data: [
       { name: "baseball", size: 1 },
       { name: "basketball", size: 3 },
@@ -56,10 +119,7 @@ const sections: Record<string, any> = {
 export const getStaticPaths: GetStaticPaths = async () => {
   return {
     fallback: false,
-    paths: [
-      { params: { section: "first" } },
-      { params: { section: "second" } },
-    ],
+    paths: Object.keys(sections).map((key) => ({ params: { section: key } })),
   };
 };
 
@@ -74,11 +134,26 @@ export const getStaticProps: GetStaticProps = async (context) => {
   return { props: sections[section] };
 };
 
-const Home: NextPage = (
+const Markdown = (props: React.ComponentProps<typeof ReactMarkdown>) => (
+  <ReactMarkdown
+    rehypePlugins={[rehypeHighlight]}
+    components={{
+      code: ({ className, inline, ...props }) => (
+        <C className={className} {...props} />
+      ),
+      h3: (props) => <h3 {...props} className="text-lg font-bold mt-2" />,
+    }}
+    {...props}
+  />
+);
+
+const Section: NextPage = (
   props: InferGetStaticPropsType<typeof getStaticProps>
 ) => {
-  const { nextSection, data, expected, title, initialCode } = props;
+  const { nextSection, data, expected, title, initialCode, description } =
+    props;
   const [code, setCode] = useState<string>(initialCode);
+  const [error, setError] = useState<Error | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
   const matches =
@@ -95,13 +170,7 @@ const Home: NextPage = (
       <main className="py-12 px-12 lg:px-36 w-full flex flex-col">
         <h1 className="text-2xl font-bold mb-1">{title}</h1>
 
-        <p className="text-sm text-gray-500 mb-4 ">
-          In the first section you will learn how to master <C>map</C>
-        </p>
-
-        <p className="text-gray-800 ">
-          First give the name of every ball in an array
-        </p>
+        <Markdown>{description}</Markdown>
 
         <Editor
           className="mt-8"
@@ -122,12 +191,23 @@ const Home: NextPage = (
             ].join("\n");
 
             console.log(codeToExecute);
-            const nextResult = eval(codeToExecute);
-            setResult(nextResult);
+            try {
+              const nextResult = eval(codeToExecute);
+
+              setResult(nextResult);
+            } catch (error) {
+              if (error instanceof Error) {
+                setError(error);
+              }
+            }
           }}
         >
           Run
         </button>
+
+        {error != null && (
+          <span className="font-mono text-red-500">{error.message}</span>
+        )}
 
         <h3 className="mt-4 text-xl font-semibold">Result</h3>
         <C className="mt-2 text-sm self-start">{JSON.stringify(result)}</C>
@@ -157,4 +237,4 @@ const Home: NextPage = (
   );
 };
 
-export default Home;
+export default Section;
